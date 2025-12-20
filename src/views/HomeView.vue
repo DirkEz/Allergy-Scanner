@@ -4,7 +4,7 @@
             <div class="mb-4">
                 <h1 class="text-xl font-semibold tracking-tight">Barcode scanner</h1>
                 <p class="mt-1 text-sm text-slate-300">
-                    Richt de camera op de barcode. Werkt het niet? Check of je op https of localhost draait.
+                    Richt de camera op de barcode. 
                 </p>
             </div>
 
