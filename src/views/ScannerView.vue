@@ -1,4 +1,76 @@
 <template>
+  <div class="bg-slate-950 p-5">
+    <button
+      type="button"
+      class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-xs text-slate-200 hover:bg-slate-950/60 sm:w-auto"
+      @click="openModal()"
+    >
+      <font-awesome-icon icon="sliders" class="text-slate-300" />
+      Instellingen
+    </button>
+
+    <span class="text-[11px] text-slate-500 ml-2">
+      {{ enabled ? 'Delen aan' : 'Delen uit' }}
+    </span>
+  </div>
+
+  <div v-if="isModalOpen" class="fixed inset-0 z-[9999]">
+  <button
+    type="button"
+    class="absolute inset-0 bg-black/70"
+    @click="closeModal()"
+  ></button>
+
+  <div class="relative flex min-h-full items-end justify-center p-4 sm:items-center">
+    <div
+      class="pointer-events-auto w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-4 shadow-xl"
+      @click.stop
+    >
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div class="text-base font-semibold text-slate-100">Logs delen?</div>
+          <div class="mt-1 text-sm text-slate-300 leading-relaxed">
+            Om de scanner te verbeteren kan je anonieme gebruikslogs delen (zoals: camera gestart, barcode gevonden, API bron gekozen, fouten).
+            Geen naam, account of exacte barcode.
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="rounded-lg border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-300 hover:bg-slate-950"
+          @click="closeModal()"
+        >
+          Sluiten
+        </button>
+      </div>
+
+      <div class="mt-4 flex flex-col gap-2 sm:flex-row">
+        <button
+          type="button"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-900/60 bg-emerald-950/30 px-3 py-2 text-sm font-medium text-emerald-200 hover:bg-emerald-950/40 sm:w-auto"
+          @click="setConsent('yes')"
+        >
+          <font-awesome-icon icon="circle-check" />
+          Ja, delen
+        </button>
+
+        <button
+          type="button"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-rose-800/60 bg-rose-950/30 px-3 py-2 text-sm text-slate-200 hover:bg-rose-950/40 sm:w-auto"
+          @click="setConsent('no')"
+        >
+          <font-awesome-icon icon="circle-xmark" />
+          Nee
+        </button>
+      </div>
+
+      <div class="mt-3 text-xs text-slate-500 leading-relaxed">
+        Je kunt dit later aanpassen via “Logs”.
+      </div>
+    </div>
+  </div>
+</div>
+
   <div class="min-h-[100svh] bg-slate-950 text-slate-100">
     <div class="mx-auto w-full max-w-xl px-4 py-5 sm:py-6">
       <div class="mb-4">
@@ -292,20 +364,225 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useBarcodeScanner } from '@/composables/useBarcodeScanner'
 import { useProductLookup } from '@/composables/useProductLookup'
 import { useProductAi } from '@/composables/useProductAi'
 
-const { aiLoading, aiError, aiText, generateAiSummary, clearAi } = useProductAi()
+const CONSENT_KEY = 'gf_scanner_telemetry_consent'
+const SESSION_KEY = 'gf_scanner_session_id'
 
+const lastSentIndex = ref(0)
+const lastSentBarcode = ref('')
+const lastSentAt = ref(0)
+
+function isNewScan(code) {
+  const now = Date.now()
+  const normalized = String(code || '').trim()
+
+  if (!normalized) return false
+
+  if (normalized === lastSentBarcode.value && now - lastSentAt.value < 15000) {
+    return false
+  }
+
+  lastSentBarcode.value = normalized
+  lastSentAt.value = now
+  return true
+}
+
+async function sendNewEvents(endpoint = '/api/telemetry') {
+  if (!enabled.value) return { ok: false, reason: 'consent_disabled' }
+  if (sending.value) return { ok: false, reason: 'already_sending' }
+  if (events.value.length <= lastSentIndex.value) return { ok: false, reason: 'no_new_events' }
+
+  sending.value = true
+  lastSendError.value = ''
+
+  const slice = events.value.slice(lastSentIndex.value)
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sentAt: nowIso(),
+        app: 'gluten-free-scanner',
+        sessionId: getSessionId(),
+        events: slice
+      })
+    })
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      lastSendError.value = text || `HTTP ${res.status}`
+      return { ok: false, reason: 'bad_response' }
+    }
+
+    lastSentIndex.value = events.value.length
+    return { ok: true }
+  } catch (e) {
+    lastSendError.value = e?.message || 'Network error'
+    return { ok: false, reason: 'network' }
+  } finally {
+    sending.value = false
+  }
+}
+
+
+function randomId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function getSessionId() {
+  const existing = localStorage.getItem(SESSION_KEY)
+  if (existing) return existing
+  const id = randomId()
+  localStorage.setItem(SESSION_KEY, id)
+  return id
+}
+
+function nowIso() {
+  return new Date().toISOString()
+}
+
+function safeString(v, max = 180) {
+  const s = String(v ?? '')
+  return s.length > max ? `${s.slice(0, max)}…` : s
+}
+
+function sanitizePayload(payload) {
+  if (!payload || typeof payload !== 'object') return payload
+  const out = Array.isArray(payload) ? [] : {}
+  for (const [k, v] of Object.entries(payload)) {
+    const key = String(k || '').toLowerCase()
+    if (key.includes('token') || key.includes('apikey') || key.includes('authorization')) continue
+    if (typeof v === 'string') out[k] = safeString(v, 300)
+    else if (typeof v === 'number' || typeof v === 'boolean' || v === null) out[k] = v
+    else if (typeof v === 'object') out[k] = sanitizePayload(v)
+  }
+  return out
+}
+
+function shortenBarcode(code) {
+  const s = String(code || '').trim()
+  if (!s) return ''
+  if (s.length <= 6) return s
+  return `${s.slice(0, 2)}…${s.slice(-2)}`
+}
+
+const consent = ref(localStorage.getItem(CONSENT_KEY) || 'unknown')
+const isModalOpen = ref(consent.value === 'unknown')
+const events = ref([])
+const lastSendError = ref('')
+const sending = ref(false)
+
+const enabled = computed(() => consent.value === 'yes')
+
+function setConsent(value) {
+  consent.value = value
+  localStorage.setItem(CONSENT_KEY, value)
+  isModalOpen.value = false
+  if (value === 'yes') track('consent_granted', { at: nowIso() })
+  else track('consent_denied', { at: nowIso() })
+}
+
+function openModal() {
+  isModalOpen.value = true
+}
+
+function closeModal() {
+  isModalOpen.value = false
+  if (consent.value === 'unknown') {
+    consent.value = 'no'
+    localStorage.setItem(CONSENT_KEY, 'no')
+  }
+}
+
+function clearLogs() {
+  events.value = []
+}
+
+function track(name, payload = {}) {
+  if (!enabled.value) return
+  const sessionId = getSessionId()
+  events.value.push({
+    t: nowIso(),
+    name: safeString(name, 80),
+    sessionId,
+    payload: sanitizePayload(payload)
+  })
+  if (events.value.length > 400) events.value.splice(0, events.value.length - 400)
+}
+
+function trackBarcodeDetected(code) {
+  track('barcode_detected', { code: shortenBarcode(code) })
+}
+
+async function sendToBackend(endpoint = '/api/telemetry') {
+  if (!enabled.value) return { ok: false, reason: 'consent_disabled' }
+  if (!events.value.length) return { ok: false, reason: 'no_events' }
+
+  sending.value = true
+  lastSendError.value = ''
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sentAt: nowIso(),
+        app: 'gluten-free-scanner',
+        sessionId: getSessionId(),
+        events: events.value
+      })
+    })
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      lastSendError.value = text || `HTTP ${res.status}`
+      return { ok: false, reason: 'bad_response' }
+    }
+
+    clearLogs()
+    return { ok: true }
+  } catch (e) {
+    lastSendError.value = e?.message || 'Network error'
+    return { ok: false, reason: 'network' }
+  } finally {
+    sending.value = false
+  }
+}
+
+const { aiLoading, aiError, aiText, generateAiSummary, clearAi } = useProductAi()
 const { loading, product, error, dataSource, statusText, detailResult, allergenResults, fetchProductMulti, clearResult } = useProductLookup()
 
 const { video, cameraState, lastBarcode, restartScanner } = useBarcodeScanner({
   onBarcode: async (code) => {
+    if (!isNewScan(code)) return
+
+    trackBarcodeDetected(code)
+    track('lookup_start', { codeLength: String(code || '').length })
+
     await fetchProductMulti(code)
+
+    track('lookup_done', { ok: Boolean(product.value), hasError: Boolean(error.value) })
+
+    await sendNewEvents('/api/telemetry')
   }
 })
+
+
+watch(product, (p) => {
+  if (!p) return
+  track('product_loaded', { source: dataSource.value || '', hasIngredients: Boolean(p.ingredients_text) })
+})
+
+watch(error, (e) => {
+  if (!e) return
+  track('product_error', { message: String(e) })
+})
+
 
 function cleanIngredientsText(input) {
   let s = String(input || '').replace(/\s+/g, ' ').trim()
