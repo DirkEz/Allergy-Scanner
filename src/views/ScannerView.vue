@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-dvh bg-slate-950 text-slate-100">
-    <div class="mx-auto w-full max-w-xl px-4 py-6">
+  <div class="min-h-[100svh] bg-slate-950 text-slate-100">
+    <div class="mx-auto w-full max-w-xl px-4 py-5 sm:py-6">
       <div class="mb-4">
         <h1 class="flex items-center gap-2 text-xl font-semibold tracking-tight">
           <font-awesome-icon icon="barcode" class="text-slate-200" />
@@ -19,17 +19,26 @@
             autoplay
             muted
             playsinline
+            webkit-playsinline
+            preload="metadata"
           ></video>
 
           <div class="pointer-events-none absolute inset-0">
             <div class="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent"></div>
-            <div class="absolute left-1/2 top-1/2 h-44 w-72 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-200/30"></div>
+
+            <div
+              class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-200/30"
+              :class="[
+                'w-[min(18rem,80vw)]',
+                'h-[min(11rem,38vw)]'
+              ]"
+            ></div>
           </div>
 
-          <div class="absolute left-3 top-3 flex flex-wrap gap-2">
+          <div class="absolute left-2 top-2 flex max-w-[calc(100%-1rem)] flex-wrap gap-2 sm:left-3 sm:top-3">
             <span class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/60 px-2.5 py-1 text-xs text-slate-200">
               <font-awesome-icon icon="camera" class="text-slate-300" />
-              {{ cameraState }}
+              <span class="truncate">{{ cameraState }}</span>
             </span>
 
             <span
@@ -45,7 +54,7 @@
               class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/60 px-2.5 py-1 text-xs text-slate-200"
             >
               <font-awesome-icon icon="hashtag" class="text-slate-300" />
-              {{ lastBarcode }}
+              <span class="break-all">{{ lastBarcode }}</span>
             </span>
           </div>
         </div>
@@ -59,7 +68,7 @@
               <font-awesome-icon icon="triangle-exclamation" class="text-rose-200" />
               Er ging iets mis
             </div>
-            <div class="mt-1 text-xs text-rose-200/80">
+            <div class="mt-1 text-xs leading-relaxed text-rose-200/80">
               Camera kon niet starten. Draai op https of localhost en geef camera-permissie.
             </div>
           </div>
@@ -72,18 +81,18 @@
               <font-awesome-icon icon="triangle-exclamation" class="text-rose-200" />
               Er ging iets mis
             </div>
-            <div class="mt-1 text-xs text-rose-200/80">{{ error }}</div>
+            <div class="mt-1 text-xs leading-relaxed text-rose-200/80 break-words">{{ error }}</div>
           </div>
 
           <div v-else-if="product" class="space-y-3">
             <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
               <div class="text-xs text-slate-300">Product</div>
-              <h2 class="mt-1 text-base font-semibold leading-snug text-slate-100">
+              <h2 class="mt-1 text-base font-semibold leading-snug text-slate-100 break-words">
                 {{ product.product_name || 'Onbekend product' }}
               </h2>
               <div v-if="dataSource" class="mt-1 flex items-center gap-2 text-xs text-slate-400">
                 <font-awesome-icon icon="database" class="text-slate-400" />
-                {{ dataSource }}
+                <span class="break-words">{{ dataSource }}</span>
               </div>
             </div>
 
@@ -105,21 +114,21 @@
 
               <p class="mt-2 flex items-center gap-2 text-sm font-semibold" :class="resultTextClass">
                 <font-awesome-icon :icon="resultIcon" :class="resultIconClass" />
-                {{ statusText }}
+                <span class="break-words">{{ statusText }}</span>
               </p>
 
               <div v-if="detailResult?.reasons?.length" class="mt-3 space-y-1 text-xs text-slate-200/90">
                 <div v-for="(r, i) in detailResult.reasons" :key="i" class="flex gap-2">
                   <font-awesome-icon icon="circle-info" class="mt-0.5 text-slate-400" />
-                  <span>{{ r }}</span>
+                  <span class="leading-relaxed break-words">{{ r }}</span>
                 </div>
 
-                <div v-if="detailResult?.matched?.length" class="pt-1 text-slate-400">
+                <div v-if="detailResult?.matched?.length" class="pt-1 text-slate-400 break-words">
                   Gevonden: {{ detailResult.matched.join(', ') }}
                 </div>
               </div>
 
-              <div class="mt-3 rounded-lg border border-slate-800 bg-slate-950/30 px-3 py-2 text-xs text-slate-300">
+              <div class="mt-3 rounded-lg border border-slate-800 bg-slate-950/30 px-3 py-2 text-xs text-slate-300 leading-relaxed">
                 Bij twijfel altijd de verpakking controleren.
               </div>
             </div>
@@ -131,19 +140,17 @@
                   AI uitleg
                 </div>
 
-               <span
-                  class="inline-flex items-center gap-2 rounded-full border border-gray-700 text-gray-600 px-2.5 py-1 text-[11px] font-medium"
-                >
+                <span class="inline-flex items-center gap-2 rounded-full border border-gray-700 px-2.5 py-1 text-[11px] font-medium text-gray-600">
                   <span class="inline-block h-2 w-2 rounded-full bg-gray-700"></span>
                   Coming Soon
                 </span>
               </div>
 
-              <div class="mt-3 flex gap-2">
+              <div class="mt-3 flex flex-col gap-2 sm:flex-row">
                 <button
                   type="button"
                   disabled
-                  class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-xs text-slate-400 cursor-not-allowed"
+                  class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-xs text-slate-400 cursor-not-allowed sm:w-auto"
                 >
                   <font-awesome-icon icon="wand-magic-sparkles" />
                   Genereer
@@ -152,21 +159,17 @@
                 <button
                   type="button"
                   disabled
-                  class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-xs text-slate-500 cursor-not-allowed"
+                  class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-xs text-slate-500 cursor-not-allowed sm:w-auto"
                 >
                   <font-awesome-icon icon="broom" />
                   Wis
                 </button>
               </div>
 
-              <div v-if="aiError" class="mt-2 rounded-lg border border-rose-900/50 bg-rose-950/20 p-3 text-xs text-rose-200"> {{ aiError }} </div> <div v-else-if="aiText" class="mt-2 rounded-lg border border-indigo-900/50 bg-indigo-950/20 p-3 text-xs text-slate-200 whitespace-pre-wrap"> {{ aiText }} </div>
-
-              <div class="mt-2 text-xs text-slate-500">
+              <div class="mt-2 text-xs text-slate-500 leading-relaxed">
                 AI-uitleg wordt binnenkort toegevoegd.
               </div>
             </div>
-
-
 
             <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
               <div class="flex items-center gap-2 text-xs text-slate-300">
@@ -182,7 +185,7 @@
                     class="flex items-start gap-2 rounded-xl border border-slate-800 bg-slate-950/30 px-3 py-2 text-xs text-slate-200"
                   >
                     <font-awesome-icon icon="leaf" class="mt-0.5 text-emerald-300/80" />
-                    <span>{{ ing }}</span>
+                    <span class="leading-relaxed break-words">{{ ing }}</span>
                   </li>
                 </ul>
               </div>
@@ -198,15 +201,15 @@
               <font-awesome-icon icon="crosshairs" class="text-slate-200" />
               Klaar om te scannen
             </div>
-            <div class="mt-1 text-xs text-slate-300">
+            <div class="mt-1 text-xs text-slate-300 leading-relaxed">
               Zorg voor genoeg licht en houd de barcode stil binnen het kader.
             </div>
           </div>
 
-          <div class="mt-4 flex flex-wrap gap-2">
+          <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <button
               type="button"
-              class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-sm text-slate-200 hover:bg-slate-950/60"
+              class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-sm text-slate-200 hover:bg-slate-950/60 sm:w-auto"
               @click="restartScanner"
             >
               <font-awesome-icon icon="rotate-right" class="text-slate-300" />
@@ -215,7 +218,7 @@
 
             <button
               type="button"
-              class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-sm text-slate-200 hover:bg-slate-950/60"
+              class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-sm text-slate-200 hover:bg-slate-950/60 sm:w-auto"
               @click="clearResult"
             >
               <font-awesome-icon icon="broom" class="text-slate-300" />
@@ -238,6 +241,7 @@
     </div>
   </div>
 </template>
+
 
 <script setup>
 import { computed } from 'vue'
