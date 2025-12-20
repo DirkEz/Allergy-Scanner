@@ -9,67 +9,99 @@
       Instellingen
     </button>
 
-    <span class="text-[11px] text-slate-500 ml-2">
+    <span class="ml-2 text-center text-[11px] text-slate-500 md:text-left">
       {{ enabled ? 'Delen aan' : 'Delen uit' }}
     </span>
   </div>
 
   <div v-if="isModalOpen" class="fixed inset-0 z-[9999]">
-  <button
-    type="button"
-    class="absolute inset-0 bg-black/70"
-    @click="closeModal()"
-  ></button>
+    <button
+      type="button"
+      class="absolute inset-0 bg-black/70"
+      @click="closeModal()"
+    ></button>
 
-  <div class="relative flex min-h-full items-end justify-center p-4 sm:items-center">
-    <div
-      class="pointer-events-auto w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-4 shadow-xl"
-      @click.stop
-    >
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <div class="text-base font-semibold text-slate-100">Logs delen?</div>
-          <div class="mt-1 text-sm text-slate-300 leading-relaxed">
-            Om de scanner te verbeteren kan je anonieme gebruikslogs delen (zoals: camera gestart, barcode gevonden, API bron gekozen, fouten).
-            Geen naam, account of exacte barcode.
+    <div class="relative flex min-h-full items-end justify-center p-4 sm:items-center">
+      <div
+        class="pointer-events-auto w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-4 shadow-xl"
+        @click.stop
+      >
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="text-base font-semibold text-slate-100">Logs delen?</div>
+            <div class="mt-1 text-sm leading-relaxed text-slate-300">
+              Om de scanner te verbeteren kan je anonieme gebruikslogs delen (zoals: camera gestart, barcode gevonden, API bron gekozen, fouten).
+              Geen naam, account of exacte barcode.
+            </div>
           </div>
+
+          <button
+            type="button"
+            class="rounded-lg border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-300 hover:bg-slate-950"
+            @click="closeModal()"
+          >
+            Sluiten
+          </button>
         </div>
 
-        <button
-          type="button"
-          class="rounded-lg border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-300 hover:bg-slate-950"
-          @click="closeModal()"
-        >
-          Sluiten
-        </button>
-      </div>
+        <div class="mt-4 flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-900/60 bg-emerald-950/30 px-3 py-2 text-sm font-medium text-emerald-200 hover:bg-emerald-950/40 sm:w-auto"
+            @click="setConsent('yes')"
+          >
+            <font-awesome-icon icon="circle-check" />
+            Ja, delen
+          </button>
 
-      <div class="mt-4 flex flex-col gap-2 sm:flex-row">
-        <button
-          type="button"
-          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-900/60 bg-emerald-950/30 px-3 py-2 text-sm font-medium text-emerald-200 hover:bg-emerald-950/40 sm:w-auto"
-          @click="setConsent('yes')"
-        >
-          <font-awesome-icon icon="circle-check" />
-          Ja, delen
-        </button>
+          <button
+            type="button"
+            class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-rose-800/60 bg-rose-950/30 px-3 py-2 text-sm text-slate-200 hover:bg-rose-950/40 sm:w-auto"
+            @click="setConsent('no')"
+          >
+            <font-awesome-icon icon="circle-xmark" />
+            Nee
+          </button>
+        </div>
 
-        <button
-          type="button"
-          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-rose-800/60 bg-rose-950/30 px-3 py-2 text-sm text-slate-200 hover:bg-rose-950/40 sm:w-auto"
-          @click="setConsent('no')"
-        >
-          <font-awesome-icon icon="circle-xmark" />
-          Nee
-        </button>
-      </div>
+        <div class="mt-3 text-xs leading-relaxed text-slate-500">
+          Je kunt dit later aanpassen via “Instelling”.
+        </div>
 
-      <div class="mt-3 text-xs text-slate-500 leading-relaxed">
-        Je kunt dit later aanpassen via “Logs”.
+        <div class="mt-4 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2 text-xs text-slate-300">
+              <font-awesome-icon icon="shield-heart" class="text-slate-300" />
+              Standaard allergie
+            </div>
+            <span class="text-[11px] text-slate-500">Primair</span>
+          </div>
+
+          <div class="mt-3">
+            <label class="block text-xs text-slate-400">Kies jouw standaard check</label>
+            <select
+              class="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-200 outline-none focus:border-slate-600"
+              :value="primaryAllergenKey"
+              @change="setPrimaryAllergen(($event.target).value)"
+            >
+              <option
+                class="rounded-xl bg-slate-900"
+                v-for="o in ALLERGEN_OPTIONS"
+                :key="o.key"
+                :value="o.key"
+              >
+                {{ o.label }}
+              </option>
+            </select>
+
+            <div class="mt-2 text-xs leading-relaxed text-slate-500">
+              Het bovenste resultaatblok toont deze allergie als hoofdcheck.
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
   <div class="min-h-[100svh] bg-slate-950 text-slate-100">
     <div class="mx-auto w-full max-w-xl px-4 py-5 sm:py-6">
@@ -149,13 +181,13 @@
               <font-awesome-icon icon="triangle-exclamation" class="text-rose-200" />
               Er ging iets mis
             </div>
-            <div class="mt-1 text-xs leading-relaxed text-rose-200/80 break-words">{{ error }}</div>
+            <div class="mt-1 break-words text-xs leading-relaxed text-rose-200/80">{{ error }}</div>
           </div>
 
           <div v-else-if="product" class="space-y-3">
             <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
               <div class="text-xs text-slate-300">Product</div>
-              <h2 class="mt-1 text-base font-semibold leading-snug text-slate-100 break-words">
+              <h2 class="mt-1 break-words text-base font-semibold leading-snug text-slate-100">
                 {{ product.product_name || 'Onbekend product' }}
               </h2>
               <div v-if="dataSource" class="mt-1 flex items-center gap-2 text-xs text-slate-400">
@@ -164,35 +196,35 @@
               </div>
             </div>
 
-            <div class="rounded-xl border p-3" :class="resultBoxClass">
+            <div class="rounded-xl border p-3" :class="primaryBoxClass">
               <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-2 text-xs text-slate-200/80">
                   <font-awesome-icon icon="clipboard-check" class="text-slate-200/70" />
-                  Resultaat (Gluten)
+                  Resultaat ({{ primaryAllergenName }})
                 </div>
 
                 <span
                   class="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-medium"
-                  :class="badgeClass"
+                  :class="primaryBadgeClass"
                 >
-                  <span class="inline-block h-2 w-2 rounded-full" :class="dotClass"></span>
-                  {{ badgeText }}
+                  <span class="inline-block h-2 w-2 rounded-full" :class="primaryDotClass"></span>
+                  {{ levelLabel(primaryLevel) }}
                 </span>
               </div>
 
-              <p class="mt-2 flex items-center gap-2 text-sm font-semibold" :class="resultTextClass">
-                <font-awesome-icon :icon="resultIcon" :class="resultIconClass" />
-                <span class="break-words">{{ statusText }}</span>
+              <p class="mt-2 flex items-center gap-2 text-sm font-semibold" :class="primaryTextClass">
+                <font-awesome-icon :icon="primaryIcon" :class="primaryIconClass" />
+                <span class="break-words">{{ primaryTitle }}</span>
               </p>
 
-              <div v-if="detailResult?.reasons?.length" class="mt-3 space-y-1 text-xs text-slate-200/90">
-                <div v-for="(r, i) in detailResult.reasons" :key="i" class="flex gap-2">
+              <div v-if="primaryReasons.length" class="mt-3 space-y-1 text-xs text-slate-200/90">
+                <div v-for="(r, i) in primaryReasons" :key="i" class="flex gap-2">
                   <font-awesome-icon icon="circle-info" class="mt-0.5 text-slate-400" />
-                  <span class="leading-relaxed break-words">{{ r }}</span>
+                  <span class="break-words leading-relaxed">{{ r }}</span>
                 </div>
 
-                <div v-if="detailResult?.matched?.length" class="pt-1 text-slate-400 break-words">
-                  Gevonden: {{ detailResult.matched.join(', ') }}
+                <div v-if="primaryMatched.length" class="pt-1 text-slate-400 break-words">
+                  Gevonden: {{ primaryMatched.join(', ') }}
                 </div>
               </div>
 
@@ -371,6 +403,38 @@ import { useProductAi } from '@/composables/useProductAi'
 
 const CONSENT_KEY = 'gf_scanner_telemetry_consent'
 const SESSION_KEY = 'gf_scanner_session_id'
+const PRIMARY_ALLERGEN_KEY = 'gf_scanner_primary_allergen'
+
+const ALLERGEN_OPTIONS = [
+  { key: 'gluten', label: 'Gluten' },
+  { key: 'milk', label: 'Melk / lactose' },
+  { key: 'egg', label: 'Ei' },
+  { key: 'peanuts', label: 'Pinda' },
+  { key: 'nuts', label: 'Noten' },
+  { key: 'soy', label: 'Soja' },
+  { key: 'sesame', label: 'Sesam' },
+  { key: 'fish', label: 'Vis' },
+  { key: 'crustaceans', label: 'Schaaldieren' },
+  { key: 'molluscs', label: 'Weekdieren' },
+  { key: 'celery', label: 'Selderij' },
+  { key: 'mustard', label: 'Mosterd' },
+  { key: 'lupin', label: 'Lupine' },
+  { key: 'sulphites', label: 'Sulfieten' }
+]
+
+const primaryAllergenKey = ref(localStorage.getItem(PRIMARY_ALLERGEN_KEY) || 'gluten')
+
+function setPrimaryAllergen(key) {
+  const v = String(key || '').trim() || 'gluten'
+  primaryAllergenKey.value = v
+  localStorage.setItem(PRIMARY_ALLERGEN_KEY, v)
+  if (enabled.value) track('primary_allergen_set', { key: v, at: nowIso() })
+}
+
+const primaryAllergenName = computed(() => {
+  const hit = ALLERGEN_OPTIONS.find(o => o.key === primaryAllergenKey.value)
+  return hit?.label || 'Gluten'
+})
 
 const lastSentIndex = ref(0)
 const lastSentBarcode = ref('')
@@ -379,13 +443,8 @@ const lastSentAt = ref(0)
 function isNewScan(code) {
   const now = Date.now()
   const normalized = String(code || '').trim()
-
   if (!normalized) return false
-
-  if (normalized === lastSentBarcode.value && now - lastSentAt.value < 15000) {
-    return false
-  }
-
+  if (normalized === lastSentBarcode.value && now - lastSentAt.value < 15000) return false
   lastSentBarcode.value = normalized
   lastSentAt.value = now
   return true
@@ -428,7 +487,6 @@ async function sendNewEvents(endpoint = '/api/telemetry') {
     sending.value = false
   }
 }
-
 
 function randomId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
@@ -519,43 +577,81 @@ function trackBarcodeDetected(code) {
   track('barcode_detected', { code: shortenBarcode(code) })
 }
 
-async function sendToBackend(endpoint = '/api/telemetry') {
-  if (!enabled.value) return { ok: false, reason: 'consent_disabled' }
-  if (!events.value.length) return { ok: false, reason: 'no_events' }
-
-  sending.value = true
-  lastSendError.value = ''
-
-  try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sentAt: nowIso(),
-        app: 'gluten-free-scanner',
-        sessionId: getSessionId(),
-        events: events.value
-      })
-    })
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      lastSendError.value = text || `HTTP ${res.status}`
-      return { ok: false, reason: 'bad_response' }
-    }
-
-    clearLogs()
-    return { ok: true }
-  } catch (e) {
-    lastSendError.value = e?.message || 'Network error'
-    return { ok: false, reason: 'network' }
-  } finally {
-    sending.value = false
-  }
-}
-
 const { aiLoading, aiError, aiText, generateAiSummary, clearAi } = useProductAi()
 const { loading, product, error, dataSource, statusText, detailResult, allergenResults, fetchProductMulti, clearResult } = useProductLookup()
+
+const primaryResult = computed(() => {
+  const list = Array.isArray(allergenResults?.value) ? allergenResults.value : []
+  const hit = list.find(x => String(x?.key || '') === String(primaryAllergenKey.value))
+  if (hit) return hit
+  if (String(primaryAllergenKey.value) === 'gluten') {
+    const dr = detailResult?.value || {}
+    return {
+      key: 'gluten',
+      name: 'Gluten',
+      level: dr.level || 'unknown',
+      title: dr.title || statusText.value || '',
+      reasons: Array.isArray(dr.reasons) ? dr.reasons : [],
+      matched: Array.isArray(dr.matched) ? dr.matched : []
+    }
+  }
+  return { key: primaryAllergenKey.value, name: primaryAllergenName.value, level: 'unknown', title: 'Onbekend', reasons: [], matched: [] }
+})
+
+const primaryLevel = computed(() => primaryResult.value?.level || 'unknown')
+const primaryTitle = computed(() => primaryResult.value?.title || '')
+const primaryReasons = computed(() => (Array.isArray(primaryResult.value?.reasons) ? primaryResult.value.reasons : []))
+const primaryMatched = computed(() => (Array.isArray(primaryResult.value?.matched) ? primaryResult.value.matched : []))
+
+const primaryBoxClass = computed(() => {
+  const lvl = primaryLevel.value
+  if (lvl === 'safe') return 'border-emerald-900/60 bg-emerald-950/30'
+  if (lvl === 'unsafe') return 'border-rose-900/60 bg-rose-950/30'
+  if (lvl === 'caution') return 'border-amber-900/60 bg-amber-950/30'
+  if (lvl === 'unknown') return 'border-indigo-900/60 bg-indigo-950/30'
+  return 'border-slate-800 bg-slate-950/40'
+})
+
+const primaryTextClass = computed(() => {
+  const lvl = primaryLevel.value
+  if (lvl === 'safe') return 'text-emerald-200'
+  if (lvl === 'unsafe') return 'text-rose-200'
+  if (lvl === 'caution') return 'text-amber-200'
+  if (lvl === 'unknown') return 'text-indigo-200'
+  return 'text-slate-200'
+})
+
+const primaryIcon = computed(() => {
+  const lvl = primaryLevel.value
+  if (lvl === 'safe') return 'circle-check'
+  if (lvl === 'unsafe') return 'circle-xmark'
+  if (lvl === 'caution') return 'triangle-exclamation'
+  return 'circle-question'
+})
+
+const primaryIconClass = computed(() => {
+  const lvl = primaryLevel.value
+  if (lvl === 'safe') return 'text-emerald-200'
+  if (lvl === 'unsafe') return 'text-rose-200'
+  if (lvl === 'caution') return 'text-amber-200'
+  return 'text-indigo-200'
+})
+
+const primaryBadgeClass = computed(() => {
+  const lvl = primaryLevel.value
+  if (lvl === 'safe') return 'border-emerald-900/60 bg-emerald-950/40 text-emerald-200'
+  if (lvl === 'unsafe') return 'border-rose-900/60 bg-rose-950/40 text-rose-200'
+  if (lvl === 'caution') return 'border-amber-900/60 bg-amber-950/40 text-amber-200'
+  return 'border-indigo-900/60 bg-indigo-950/40 text-indigo-200'
+})
+
+const primaryDotClass = computed(() => {
+  const lvl = primaryLevel.value
+  if (lvl === 'safe') return 'bg-emerald-300'
+  if (lvl === 'unsafe') return 'bg-rose-300'
+  if (lvl === 'caution') return 'bg-amber-300'
+  return 'bg-indigo-300'
+})
 
 const { video, cameraState, lastBarcode, restartScanner } = useBarcodeScanner({
   onBarcode: async (code) => {
@@ -567,11 +663,9 @@ const { video, cameraState, lastBarcode, restartScanner } = useBarcodeScanner({
     await fetchProductMulti(code)
 
     track('lookup_done', { ok: Boolean(product.value), hasError: Boolean(error.value) })
-
     await sendNewEvents('/api/telemetry')
   }
 })
-
 
 watch(product, (p) => {
   if (!p) return
@@ -582,7 +676,6 @@ watch(error, (e) => {
   if (!e) return
   track('product_error', { message: String(e) })
 })
-
 
 function cleanIngredientsText(input) {
   let s = String(input || '').replace(/\s+/g, ' ').trim()
@@ -670,71 +763,6 @@ const ingredientsList = computed(() => {
   const filtered = parts.filter(x => !/^(allerg(en|enen)|may contain|kan sporen bevatten|sporen van)\b/i.test(x))
 
   return dedupeKeepOrder(filtered).slice(0, 80)
-})
-
-const resultLevel = computed(() => detailResult.value?.level || 'unknown')
-
-const resultBoxClass = computed(() => {
-  const lvl = resultLevel.value
-  if (lvl === 'safe') return 'border-emerald-900/60 bg-emerald-950/30'
-  if (lvl === 'unsafe') return 'border-rose-900/60 bg-rose-950/30'
-  if (lvl === 'caution') return 'border-amber-900/60 bg-amber-950/30'
-  if (lvl === 'unknown') return 'border-indigo-900/60 bg-indigo-950/30'
-  return 'border-slate-800 bg-slate-950/40'
-})
-
-const resultTextClass = computed(() => {
-  const lvl = resultLevel.value
-  if (lvl === 'safe') return 'text-emerald-200'
-  if (lvl === 'unsafe') return 'text-rose-200'
-  if (lvl === 'caution') return 'text-amber-200'
-  if (lvl === 'unknown') return 'text-indigo-200'
-  return 'text-slate-200'
-})
-
-const resultIcon = computed(() => {
-  const lvl = resultLevel.value
-  if (lvl === 'safe') return 'circle-check'
-  if (lvl === 'unsafe') return 'circle-xmark'
-  if (lvl === 'caution') return 'triangle-exclamation'
-  if (lvl === 'unknown') return 'circle-question'
-  return 'circle-question'
-})
-
-const resultIconClass = computed(() => {
-  const lvl = resultLevel.value
-  if (lvl === 'safe') return 'text-emerald-200'
-  if (lvl === 'unsafe') return 'text-rose-200'
-  if (lvl === 'caution') return 'text-amber-200'
-  if (lvl === 'unknown') return 'text-indigo-200'
-  return 'text-slate-300'
-})
-
-const badgeText = computed(() => {
-  const lvl = resultLevel.value
-  if (lvl === 'safe') return 'Veilig'
-  if (lvl === 'unsafe') return 'Niet veilig'
-  if (lvl === 'caution') return 'Let op'
-  if (lvl === 'unknown') return 'Onbekend'
-  return 'Onbekend'
-})
-
-const badgeClass = computed(() => {
-  const lvl = resultLevel.value
-  if (lvl === 'safe') return 'border-emerald-900/60 bg-emerald-950/40 text-emerald-200'
-  if (lvl === 'unsafe') return 'border-rose-900/60 bg-rose-950/40 text-rose-200'
-  if (lvl === 'caution') return 'border-amber-900/60 bg-amber-950/40 text-amber-200'
-  if (lvl === 'unknown') return 'border-indigo-900/60 bg-indigo-950/40 text-indigo-200'
-  return 'border-slate-700 bg-slate-950/40 text-slate-200'
-})
-
-const dotClass = computed(() => {
-  const lvl = resultLevel.value
-  if (lvl === 'safe') return 'bg-emerald-300'
-  if (lvl === 'unsafe') return 'bg-rose-300'
-  if (lvl === 'caution') return 'bg-amber-300'
-  if (lvl === 'unknown') return 'bg-indigo-300'
-  return 'bg-slate-300'
 })
 
 function levelLabel(level) {
