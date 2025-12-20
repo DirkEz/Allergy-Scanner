@@ -17,6 +17,12 @@ export default defineConfig({
     host: true,
     allowedHosts: [
       'scanner.dirkez.nl'
-    ]
+    ],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8787',
+        changeOrigin: true
+      }
+    }
   }
 })
