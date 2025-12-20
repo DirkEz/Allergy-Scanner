@@ -27,11 +27,7 @@
             <div class="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent"></div>
 
             <div
-              class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-200/30"
-              :class="[
-                'w-[min(18rem,80vw)]',
-                'h-[min(11rem,38vw)]'
-              ]"
+              class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-200/30 w-[min(18rem,80vw)] h-[min(11rem,38vw)]"
             ></div>
           </div>
 
@@ -100,7 +96,7 @@
               <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-2 text-xs text-slate-200/80">
                   <font-awesome-icon icon="clipboard-check" class="text-slate-200/70" />
-                  Resultaat
+                  Resultaat (Gluten)
                 </div>
 
                 <span
@@ -130,6 +126,59 @@
 
               <div class="mt-3 rounded-lg border border-slate-800 bg-slate-950/30 px-3 py-2 text-xs text-slate-300 leading-relaxed">
                 Bij twijfel altijd de verpakking controleren.
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2 text-xs text-slate-300">
+                  <font-awesome-icon icon="shield-heart" class="text-slate-300" />
+                  Allergenen check
+                </div>
+
+                <span class="text-[11px] text-slate-500">
+                  Per allergeen
+                </span>
+              </div>
+
+              <div v-if="allergenResults?.length" class="mt-3 space-y-2">
+                <div
+                  v-for="a in allergenResults"
+                  :key="a.key"
+                  class="rounded-xl border border-slate-800 bg-slate-950/30 p-3"
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <div class="text-xs text-slate-300">{{ a.name }}</div>
+                      <div class="mt-1 text-sm font-semibold break-words" :class="levelTextClass(a.level)">
+                        {{ a.title }}
+                      </div>
+                    </div>
+
+                    <span
+                      class="shrink-0 inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-medium"
+                      :class="levelBadgeClass(a.level)"
+                    >
+                      <span class="inline-block h-2 w-2 rounded-full" :class="levelDotClass(a.level)"></span>
+                      {{ levelLabel(a.level) }}
+                    </span>
+                  </div>
+
+                  <div v-if="a.reasons?.length" class="mt-2 space-y-1 text-xs text-slate-300">
+                    <div v-for="(r, idx) in a.reasons" :key="idx" class="flex gap-2">
+                      <font-awesome-icon icon="circle-info" class="mt-0.5 text-slate-500" />
+                      <span class="leading-relaxed break-words">{{ r }}</span>
+                    </div>
+                  </div>
+
+                  <div v-if="a.matched?.length" class="mt-2 text-xs text-slate-500 break-words">
+                    Gevonden: {{ a.matched.join(', ') }}
+                  </div>
+                </div>
+              </div>
+
+              <div v-else class="mt-2 text-xs text-slate-500 leading-relaxed">
+                Geen allergenen-informatie beschikbaar.
               </div>
             </div>
 
@@ -242,7 +291,6 @@
   </div>
 </template>
 
-
 <script setup>
 import { computed } from 'vue'
 import { useBarcodeScanner } from '@/composables/useBarcodeScanner'
@@ -251,8 +299,7 @@ import { useProductAi } from '@/composables/useProductAi'
 
 const { aiLoading, aiError, aiText, generateAiSummary, clearAi } = useProductAi()
 
-
-const { loading, product, error, dataSource, statusText, detailResult, fetchProductMulti, clearResult } = useProductLookup()
+const { loading, product, error, dataSource, statusText, detailResult, allergenResults, fetchProductMulti, clearResult } = useProductLookup()
 
 const { video, cameraState, lastBarcode, restartScanner } = useBarcodeScanner({
   onBarcode: async (code) => {
@@ -311,8 +358,7 @@ function normalizeItem(s) {
   t = t.replace(/\s*\(\s*/g, ' (')
   t = t.replace(/\s*\)\s*/g, ')')
   t = t.replace(/\s*:\s*/g, ': ')
-  t = t.trim()
-  return t
+  return t.trim()
 }
 
 function dedupeKeepOrder(list) {
@@ -413,4 +459,32 @@ const dotClass = computed(() => {
   if (lvl === 'unknown') return 'bg-indigo-300'
   return 'bg-slate-300'
 })
+
+function levelLabel(level) {
+  if (level === 'safe') return 'Veilig'
+  if (level === 'unsafe') return 'Niet veilig'
+  if (level === 'caution') return 'Let op'
+  return 'Onbekend'
+}
+
+function levelBadgeClass(level) {
+  if (level === 'safe') return 'border-emerald-900/60 bg-emerald-950/40 text-emerald-200'
+  if (level === 'unsafe') return 'border-rose-900/60 bg-rose-950/40 text-rose-200'
+  if (level === 'caution') return 'border-amber-900/60 bg-amber-950/40 text-amber-200'
+  return 'border-indigo-900/60 bg-indigo-950/40 text-indigo-200'
+}
+
+function levelDotClass(level) {
+  if (level === 'safe') return 'bg-emerald-300'
+  if (level === 'unsafe') return 'bg-rose-300'
+  if (level === 'caution') return 'bg-amber-300'
+  return 'bg-indigo-300'
+}
+
+function levelTextClass(level) {
+  if (level === 'safe') return 'text-emerald-200'
+  if (level === 'unsafe') return 'text-rose-200'
+  if (level === 'caution') return 'text-amber-200'
+  return 'text-indigo-200'
+}
 </script>
