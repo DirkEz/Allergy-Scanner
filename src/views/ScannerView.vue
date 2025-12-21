@@ -28,6 +28,7 @@
       <div v-if="authUser" class="text-xs text-slate-400 break-words">
         {{ authUser.name || authUser.email || 'Ingelogd' }}
       </div>
+      <img v-if="authUser" :src="authUser.avatar || ''" alt="Avatar">
     </div>
   </div>
 
@@ -107,7 +108,9 @@
           <font-awesome-icon :icon="['fab','google']" />
           Doorgaan met Google
         </button>
-
+        <div class="mt-3 text-xs leading-relaxed text-slate-500">
+          Door in te loggen kun je zelf producten toevoegen en bewerken. Daarmee help je andere gebruikers en jezelf met het verfijnen van de data.
+        </div>
 
         <div class="mt-3 text-xs leading-relaxed text-slate-500">
           Na het inloggen kom je automatisch terug op deze pagina.
