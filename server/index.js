@@ -1,61 +1,96 @@
 import 'dotenv/config'
 import express from 'express'
+import cors from 'cors'
+import session from 'express-session'
+import passport from 'passport'
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
 import OpenAI from 'openai'
 
 const app = express()
+app.set('trust proxy', 1)
 app.use(express.json({ limit: '1mb' }))
 
-const apiKey = process.env.OPENAI_API_KEY
-if (!apiKey) {
-  console.log('OPENAI_API_KEY: MISSING')
-} else {
-  console.log('OPENAI_API_KEY: LOADED')
-}
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
 
-const client = new OpenAI({ apiKey })
+app.use(
+  cors({
+    origin: FRONTEND_URL,
+    credentials: true
+  })
+)
 
-const webhookUrl = process.env.DISCORD_WEBHOOK_URL || ''
-
-function safeString(v, max = 180) {
-  const s = String(v ?? '')
-  return s.length > max ? `${s.slice(0, max)}…` : s
-}
-
-function pickStats(events = []) {
-  const total = Array.isArray(events) ? events.length : 0
-  const byName = {}
-  if (Array.isArray(events)) {
-    for (const e of events) {
-      const n = safeString(e?.name || 'unknown', 60)
-      byName[n] = (byName[n] || 0) + 1
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || 'dev_secret',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production'
     }
-  }
-  const top = Object.entries(byName)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 6)
-  return { total, top }
+  })
+)
+
+app.use(passport.initialize())
+app.use(passport.session())
+
+passport.serializeUser((user, done) => done(null, user))
+passport.deserializeUser((user, done) => done(null, user))
+
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: '/auth/google/callback'
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      const user = {
+        id: profile.id,
+        email: profile.emails?.[0]?.value || '',
+        name: profile.displayName || '',
+        avatar: profile.photos?.[0]?.value || ''
+      }
+      done(null, user)
+    }
+  )
+)
+
+function requireAuth(req, res, next) {
+  if (req.user) return next()
+  res.status(401).json({ error: 'Unauthorized' })
 }
 
-async function postToDiscordWebhook({ webhookUrl, payload, fileName, fileContent }) {
-  const form = new FormData()
-  form.append('payload_json', JSON.stringify(payload))
+app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }))
 
-  if (fileContent) {
-    const blob = new Blob([fileContent], { type: 'application/json' })
-    form.append('files[0]', blob, fileName || 'telemetry.json')
+app.get(
+  '/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: `${FRONTEND_URL}/?login=failed` }),
+  (req, res) => {
+    res.redirect(`${FRONTEND_URL}/?login=ok`)
   }
+)
 
-  const r = await fetch(webhookUrl, { method: 'POST', body: form })
-  if (!r.ok) {
-    const t = await r.text().catch(() => '')
-    throw new Error(t || `Discord webhook error ${r.status}`)
-  }
-}
+app.get('/api/me', (req, res) => {
+  res.json({ user: req.user || null })
+})
+
+app.post('/api/logout', (req, res) => {
+  req.logout(() => {
+    req.session.destroy(() => {
+      res.clearCookie('connect.sid')
+      res.json({ ok: true })
+    })
+  })
+})
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 app.post('/api/telemetry', async (req, res) => {
   try {
-    const webhookUrl = process.env.DISCORD_WEBHOOK_URL || ''
-    if (!webhookUrl) return res.status(500).json({ ok: false, error: 'Missing DISCORD_WEBHOOK_URL' })
+    const webhookUrl = process.env.DISCORD_WEBHOOK_URL
+    if (!webhookUrl) return res.status(500).json({ ok: false })
 
     const body = req.body || {}
     const events = Array.isArray(body.events) ? body.events : []
@@ -69,105 +104,65 @@ app.post('/api/telemetry', async (req, res) => {
       byName[n] = (byName[n] || 0) + 1
     }
 
-    const top = Object.entries(byName).sort((a, b) => b[1] - a[1]).slice(0, 6)
+    const top = Object.entries(byName).slice(0, 6)
     const topLines = top.map(([n, c]) => `• ${n}: ${c}`).join('\n') || '• (geen)'
 
     const json = JSON.stringify({ sentAt, app: appName, sessionId, events }, null, 2)
 
     const form = new FormData()
-    form.append('payload_json', JSON.stringify({
-      content:
-        `**Telemetry ontvangen**\n` +
-        `App: \`${appName}\`\n` +
-        `Session: \`${sessionId}\`\n` +
-        `Events: \`${events.length}\`\n` +
-        `Tijd: \`${sentAt}\``,
-      embeds: [{ title: 'Top events', description: topLines, color: 0x5865f2 }]
-    }))
+    form.append(
+      'payload_json',
+      JSON.stringify({
+        content:
+          `**Telemetry ontvangen**\n` +
+          `App: \`${appName}\`\n` +
+          `Session: \`${sessionId}\`\n` +
+          `Events: \`${events.length}\`\n` +
+          `Tijd: \`${sentAt}\``,
+        embeds: [{ title: 'Top events', description: topLines, color: 0x5865f2 }]
+      })
+    )
 
-    form.append('files[0]', new Blob([json], { type: 'application/json' }), `telemetry-${sessionId}-${Date.now()}.json`)
+    form.append(
+      'files[0]',
+      new Blob([json], { type: 'application/json' }),
+      `telemetry-${sessionId}-${Date.now()}.json`
+    )
 
     const r = await fetch(webhookUrl, { method: 'POST', body: form })
-    if (!r.ok) {
-      const t = await r.text().catch(() => '')
-      return res.status(500).json({ ok: false, error: t || `Discord webhook error ${r.status}` })
-    }
+    if (!r.ok) throw new Error('Discord webhook failed')
 
     res.json({ ok: true })
   } catch (e) {
-    res.status(500).json({ ok: false, error: e?.message || 'telemetry_failed' })
+    res.status(500).json({ ok: false })
   }
 })
-
 
 app.post('/api/ai/product-summary', async (req, res) => {
   try {
     const { product, result } = req.body || {}
+    if (!product) return res.status(400).json({ error: 'Missing product' })
 
-    if (!product) {
-      return res.status(400).json({ error: 'Missing product' })
-    }
-
-    const productName = product.product_name || 'Onbekend product'
-    const ingredients = product.ingredients_text || ''
-    const labels = product.labels || ''
-    const allergens = product.allergens || ''
-    const source = product.source || ''
-
-    const level = result?.level || 'unknown'
-    const title = result?.title || ''
-    const reasons = Array.isArray(result?.reasons) ? result.reasons : []
-    const matched = Array.isArray(result?.matched) ? result.matched : []
-
-    const instructions =
-      'Je bent een food-safety assistent. Schrijf in het Nederlands. ' +
-      'Geef een korte uitleg op basis van de productdata. ' +
-      'Wees voorzichtig: als info ontbreekt, zeg dat expliciet. ' +
-      'Gebruik dit format:\n' +
-      '1) Samenvatting (1-2 zinnen)\n' +
-      '2) Gluten-inschatting (veilig / niet veilig / let op / onbekend)\n' +
-      '3) Waarom (max 4 bullets)\n' +
-      '4) Actie (1 zin: wat checken op verpakking)'
-
-    const input =
-      `Productnaam: ${productName}\n` +
-      `Bron: ${source}\n` +
-      `Labels: ${labels}\n` +
-      `Allergenen: ${allergens}\n` +
-      `Ingrediënten: ${ingredients}\n` +
-      `App-inschatting level: ${level}\n` +
-      `App-titel: ${title}\n` +
-      `Redenen: ${reasons.join(' | ')}\n` +
-      `Matches: ${matched.join(', ')}`
-
-    const response = await client.responses.create({
+    const response = await openai.responses.create({
       model: 'gpt-5',
-      instructions,
-      input
+      instructions:
+        'Je bent een food-safety assistent. Schrijf in het Nederlands.',
+      input: JSON.stringify({ product, result })
     })
 
     res.json({ text: response.output_text || '' })
   } catch (e) {
-    const status = e?.status || e?.response?.status || 500
-    const message =
-      e?.error?.message ||
-      e?.response?.data?.error?.message ||
-      e?.message ||
-      'Unknown error'
-
-    console.log('AI ERROR STATUS:', status)
-    console.log('AI ERROR MESSAGE:', message)
-    console.log('AI ERROR RAW:', e)
-
-    res.status(500).json({
-      error: 'AI request failed',
-      status,
-      message
-    })
+    res.status(500).json({ error: 'AI request failed' })
   }
+})
+
+app.post('/api/products', requireAuth, async (req, res) => {
+  const user = req.user
+  const product = req.body || {}
+  res.json({ ok: true, createdBy: user.email, product })
 })
 
 const port = Number(process.env.PORT || 8787)
 app.listen(port, () => {
-  console.log(`AI backend listening on http://localhost:${port}`)
+  console.log(`Backend running on http://localhost:${port}`)
 })

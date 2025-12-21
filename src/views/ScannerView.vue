@@ -1,18 +1,121 @@
 <template>
   <div class="bg-slate-950 p-5">
-    <button
-      type="button"
-      class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-xs text-slate-200 hover:bg-slate-950/60 sm:w-auto"
-      @click="openModal()"
-    >
-      <font-awesome-icon icon="sliders" class="text-slate-300" />
-      Instellingen
-    </button>
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <button
+          type="button"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-xs text-slate-200 hover:bg-slate-950/60 sm:w-auto"
+          @click="openModal()"
+        >
+          <font-awesome-icon icon="sliders" class="text-slate-300" />
+          Instellingen
+        </button>
 
-    <span class="ml-2 text-center text-[11px] text-slate-500 md:text-left">
-      {{ enabled ? 'Delen aan' : 'Delen uit' }}
-    </span>
+        <button
+          type="button"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-xs text-slate-200 hover:bg-slate-950/60 sm:w-auto"
+          @click="openLoginModal()"
+        >
+          <font-awesome-icon icon="user" class="text-slate-300" />
+          {{ authUser ? 'Account' : 'Inloggen' }}
+        </button>
+
+        <span class="ml-0 text-center text-[11px] text-slate-500 sm:ml-2 md:text-left">
+          {{ enabled ? 'Delen aan' : 'Delen uit' }}
+        </span>
+      </div>
+
+      <div v-if="authUser" class="text-xs text-slate-400 break-words">
+        {{ authUser.name || authUser.email || 'Ingelogd' }}
+      </div>
+    </div>
   </div>
+
+  <div v-if="isLoginModalOpen" class="fixed inset-0 z-[9999]">
+  <button
+    type="button"
+    class="absolute inset-0 bg-black/70"
+    @click="closeLoginModal()"
+  ></button>
+
+  <div class="relative flex min-h-full items-end justify-center p-4 sm:items-center">
+    <div
+      class="pointer-events-auto w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-4 shadow-xl"
+      @click.stop
+    >
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div class="text-base font-semibold text-slate-100">
+            {{ authUser ? 'Account' : 'Inloggen' }}
+          </div>
+          <div class="mt-1 text-sm leading-relaxed text-slate-300">
+            {{ authUser
+              ? 'Je bent ingelogd en kunt straks producten toevoegen.'
+              : 'Log in met Google zodat je zelf items kunt toevoegen.' }}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="rounded-lg border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-300 hover:bg-slate-950"
+          @click="closeLoginModal()"
+        >
+          Sluiten
+        </button>
+      </div>
+
+      <div v-if="authError" class="mt-4 rounded-lg border border-rose-900/50 bg-rose-950/20 p-3 text-xs text-rose-200 break-words">
+        {{ authError }}
+      </div>
+
+      <div v-if="authUser" class="mt-4 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+        <div class="text-xs text-slate-400">Ingelogd als</div>
+        <div class="mt-1 text-sm font-semibold text-slate-100 break-words">
+          {{ authUser.name || authUser.email || 'Gebruiker' }}
+        </div>
+
+        <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-sm text-slate-200 hover:bg-slate-950/60 sm:w-auto"
+            :disabled="authLoading"
+            @click="refreshMe()"
+          >
+            <font-awesome-icon icon="arrows-rotate" class="text-slate-300" />
+            Verversen
+          </button>
+
+          <button
+            type="button"
+            class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-rose-800/60 bg-rose-950/30 px-3 py-2 text-sm text-rose-200 hover:bg-rose-950/40 sm:w-auto"
+            :disabled="authLoading"
+            @click="doLogout()"
+          >
+            <font-awesome-icon icon="right-from-bracket" />
+            Uitloggen
+          </button>
+        </div>
+      </div>
+
+      <div v-else class="mt-4">
+        <button
+          type="button"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-sm text-slate-200 hover:bg-slate-950/60"
+          :disabled="authLoading"
+          @click="loginWithGoogleNow()"
+        >
+          <font-awesome-icon icon="brands fa-google" />
+          Doorgaan met Google
+        </button>
+
+        <div class="mt-3 text-xs leading-relaxed text-slate-500">
+          Na het inloggen kom je automatisch terug op deze pagina.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 
   <div v-if="isModalOpen" class="fixed inset-0 z-[9999]">
     <button
@@ -400,6 +503,53 @@ import { computed, ref, watch } from 'vue'
 import { useBarcodeScanner } from '@/composables/useBarcodeScanner'
 import { useProductLookup } from '@/composables/useProductLookup'
 import { useProductAi } from '@/composables/useProductAi'
+import { useAuth } from '@/composables/useAuth'
+
+const isLoginModalOpen = ref(false)
+const authError = ref('')
+
+const { user: authUserRef, loading: authLoadingRef, fetchMe, loginWithGoogle, logout } = useAuth()
+
+const authUser = computed(() => authUserRef.value)
+const authLoading = computed(() => authLoadingRef.value)
+
+async function openLoginModal() {
+  isLoginModalOpen.value = true
+  authError.value = ''
+  try {
+    await fetchMe()
+  } catch {
+    authError.value = 'Kon login status niet ophalen'
+  }
+}
+
+function closeLoginModal() {
+  isLoginModalOpen.value = false
+}
+
+async function refreshMe() {
+  authError.value = ''
+  try {
+    await fetchMe()
+  } catch {
+    authError.value = 'Kon login status niet ophalen'
+  }
+}
+
+function loginWithGoogleNow() {
+  authError.value = ''
+  loginWithGoogle()
+}
+
+async function doLogout() {
+  authError.value = ''
+  try {
+    await logout()
+  } catch {
+    authError.value = 'Uitloggen mislukt'
+  }
+}
+
 
 const CONSENT_KEY = 'gf_scanner_telemetry_consent'
 const SESSION_KEY = 'gf_scanner_session_id'
@@ -463,6 +613,7 @@ async function sendNewEvents(endpoint = '/api/telemetry') {
   try {
     const res = await fetch(endpoint, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         sentAt: nowIso(),

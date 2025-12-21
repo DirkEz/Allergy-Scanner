@@ -33,9 +33,11 @@ export function useProductAi() {
 
       const res = await fetch('/api/ai/product-summary', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         },
+
         body: JSON.stringify(payload)
       })
 
