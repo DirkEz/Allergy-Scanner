@@ -50,7 +50,7 @@ passport.use(
     {
       clientID: GOOGLE_CLIENT_ID,
       clientSecret: GOOGLE_CLIENT_SECRET,
-      callbackURL: '/auth/google/callback'
+      callbackURL: `${FRONTEND_URL}/auth/google/callback`
     },
     async (accessToken, refreshToken, profile, done) => {
       const user = {
@@ -63,6 +63,7 @@ passport.use(
     }
   )
 )
+
 
 
 function requireAuth(req, res, next) {
