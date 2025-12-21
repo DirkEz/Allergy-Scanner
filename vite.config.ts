@@ -16,7 +16,8 @@ export default defineConfig({
   server: {
     host: true,
     allowedHosts: [
-      'scanner.dirkez.nl'
+      'scanner.dirkez.nl',
+      'allergiechecker.com'
     ],
     proxy: {
       '/api': {
