@@ -101,12 +101,13 @@
         <button
           type="button"
           class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-sm text-slate-200 hover:bg-slate-950/60"
-          :disabled="authLoading"
+          :disabled="loginBusy"
           @click="loginWithGoogleNow()"
         >
-          <font-awesome-icon icon="brands fa-google" />
+          <font-awesome-icon :icon="['fab','google']" />
           Doorgaan met Google
         </button>
+
 
         <div class="mt-3 text-xs leading-relaxed text-slate-500">
           Na het inloggen kom je automatisch terug op deze pagina.
@@ -536,8 +537,11 @@ async function refreshMe() {
   }
 }
 
+const loginBusy = ref(false)
+
 function loginWithGoogleNow() {
   authError.value = ''
+  loginBusy.value = true
   loginWithGoogle()
 }
 
