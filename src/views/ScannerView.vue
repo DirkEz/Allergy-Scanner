@@ -500,11 +500,23 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { useBarcodeScanner } from '@/composables/useBarcodeScanner'
 import { useProductLookup } from '@/composables/useProductLookup'
 import { useProductAi } from '@/composables/useProductAi'
 import { useAuth } from '@/composables/useAuth'
+
+onMounted(async () => {
+  const url = new URL(window.location.href)
+  const login = url.searchParams.get('login')
+  if (login === 'ok') {
+    await fetchMe()
+    url.searchParams.delete('login')
+    window.history.replaceState({}, '', url.toString())
+  } else {
+    await fetchMe()
+  }
+})
 
 const isLoginModalOpen = ref(false)
 const authError = ref('')
