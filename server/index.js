@@ -38,11 +38,18 @@ app.use(passport.session())
 passport.serializeUser((user, done) => done(null, user))
 passport.deserializeUser((user, done) => done(null, user))
 
+const GOOGLE_CLIENT_ID = String(process.env.GOOGLE_CLIENT_ID || '').trim()
+const GOOGLE_CLIENT_SECRET = String(process.env.GOOGLE_CLIENT_SECRET || '').trim()
+
+if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+  throw new Error('Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET')
+}
+
 passport.use(
   new GoogleStrategy(
     {
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      clientID: GOOGLE_CLIENT_ID,
+      clientSecret: GOOGLE_CLIENT_SECRET,
       callbackURL: '/auth/google/callback'
     },
     async (accessToken, refreshToken, profile, done) => {
@@ -56,6 +63,7 @@ passport.use(
     }
   )
 )
+
 
 function requireAuth(req, res, next) {
   if (req.user) return next()
