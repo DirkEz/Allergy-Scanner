@@ -28,7 +28,7 @@
       <div v-if="authUser" class="text-xs text-slate-400 break-words">
         {{ authUser.name || authUser.email || 'Ingelogd' }}
       </div>
-      <img v-if="authUser" :src="authUser.avatar || ''" alt="Avatar">
+      <img v-if="authUser" :src="authUser.avatar || ''" alt="Avatar" class="h-10 w-10">
     </div>
   </div>
 
