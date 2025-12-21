@@ -25,7 +25,7 @@
         </span>
       </div>
 
-      <div class="align-left">
+      <div class="align-left flex items-center gap-3 sm:align-right sm:justify-end">
         <div v-if="authUser" class="text-xs text-slate-400 break-words">
           {{ authUser.name || authUser.email || 'Ingelogd' }}
         </div>
