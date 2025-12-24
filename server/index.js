@@ -5,6 +5,7 @@ import session from 'express-session'
 import passport from 'passport'
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
 import OpenAI from 'openai'
+import mysql from 'mysql2/promise'
 
 const app = express()
 app.set('trust proxy', 1)
@@ -14,7 +15,6 @@ app.use((req, res, next) => {
   console.log(req.method, req.url)
   next()
 })
-
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
 
@@ -70,7 +70,33 @@ passport.use(
   )
 )
 
+const db = mysql.createPool({
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT || 3306),
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  charset: 'utf8mb4'
+})
 
+try {
+  const conn = await db.getConnection()
+  await conn.ping()
+  conn.release()
+  console.log('MySQL connected')
+} catch (e) {
+  console.error('MySQL connection failed')
+  console.error(e)
+  process.exit(1)
+}
+
+async function query(sql, params = []) {
+  const [rows] = await db.execute(sql, params)
+  return rows
+}
 
 function requireAuth(req, res, next) {
   if (req.user) return next()
@@ -160,8 +186,7 @@ app.post('/api/ai/product-summary', async (req, res) => {
 
     const response = await openai.responses.create({
       model: 'gpt-5',
-      instructions:
-        'Je bent een food-safety assistent. Schrijf in het Nederlands.',
+      instructions: 'Je bent een food-safety assistent. Schrijf in het Nederlands.',
       input: JSON.stringify({ product, result })
     })
 
@@ -174,7 +199,14 @@ app.post('/api/ai/product-summary', async (req, res) => {
 app.post('/api/products', requireAuth, async (req, res) => {
   const user = req.user
   const product = req.body || {}
-  res.json({ ok: true, createdBy: user.email, product })
+
+  const created = await query(
+    `INSERT INTO products (created_by_email, payload_json)
+     VALUES (?, ?)`,
+    [user.email || '', JSON.stringify(product)]
+  )
+
+  res.json({ ok: true, createdBy: user.email, insertId: created?.insertId || null })
 })
 
 const port = Number(process.env.PORT || 8787)
