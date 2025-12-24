@@ -2,9 +2,12 @@ import { computed, ref } from 'vue'
 
 export function useProductLookup() {
   const loading = ref(false)
+  const saving = ref(false)
   const product = ref(null)
   const error = ref(null)
   const dataSource = ref('')
+  const saveError = ref('')
+  const saveOk = ref(false)
 
   function normalizeText(v) {
     return String(v || '').toLowerCase()
@@ -276,11 +279,44 @@ export function useProductLookup() {
     }
   }
 
+  async function fetchFromDb(barcode) {
+    try {
+      const res = await fetch(`/api/products/${encodeURIComponent(barcode)}`, { credentials: 'include' })
+      if (res.status === 404) return null
+      if (!res.ok) return null
+      const data = await res.json()
+      const p = data?.product
+      if (!p) return null
+
+      dataSource.value = 'Database'
+      return {
+        product_name: p.name || 'Onbekend',
+        allergens: Array.isArray(p.allergens) ? p.allergens.map(a => a.key).join(',') : '',
+        labels: '',
+        ingredients_text: p.ingredients_text || 'Onbekend',
+        raw: p,
+        _db: true,
+        _dbAllergens: Array.isArray(p.allergens) ? p.allergens : []
+      }
+    } catch {
+      return null
+    }
+  }
+
   async function fetchProductMulti(barcode) {
     loading.value = true
     product.value = null
     error.value = null
     dataSource.value = ''
+    saveError.value = ''
+    saveOk.value = false
+
+    const fromDb = await fetchFromDb(barcode)
+    if (fromDb) {
+      product.value = fromDb
+      loading.value = false
+      return
+    }
 
     const code = encodeURIComponent(barcode)
 
@@ -357,14 +393,69 @@ export function useProductLookup() {
     loading.value = false
   }
 
+  function cleanKeyList(list) {
+    const seen = new Set()
+    const out = []
+    for (const x of Array.isArray(list) ? list : []) {
+      const k = String(x || '').trim()
+      if (!k) continue
+      if (seen.has(k)) continue
+      seen.add(k)
+      out.push(k)
+    }
+    return out
+  }
+
+  async function saveProductToDb({ barcode, name, ingredients_text, allergenKeys }) {
+    saving.value = true
+    saveError.value = ''
+    saveOk.value = false
+    try {
+      const payload = {
+        barcode: String(barcode || '').trim(),
+        name: String(name || '').trim() || 'Onbekend',
+        ingredients_text: String(ingredients_text || '').trim() || 'Onbekend',
+        allergenKeys: cleanKeyList(allergenKeys)
+      }
+
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+
+      if (!res.ok) {
+        const t = await res.text().catch(() => '')
+        saveError.value = t || `HTTP ${res.status}`
+        return null
+      }
+
+      const data = await res.json().catch(() => null)
+      saveOk.value = true
+
+      await fetchProductMulti(payload.barcode)
+
+      return data
+    } catch (e) {
+      saveError.value = String(e?.message || 'Opslaan mislukt')
+      return null
+    } finally {
+      saving.value = false
+    }
+  }
+
   function clearResult() {
     product.value = null
     error.value = null
     dataSource.value = ''
+    saveError.value = ''
+    saveOk.value = false
   }
 
   return {
     loading,
+    saving,
     product,
     error,
     dataSource,
@@ -372,6 +463,10 @@ export function useProductLookup() {
     detailResult,
     allergenResults,
     fetchProductMulti,
-    clearResult
+    saveProductToDb,
+    saveError,
+    saveOk,
+    clearResult,
+    ALLERGENS
   }
 }

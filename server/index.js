@@ -197,17 +197,127 @@ app.post('/api/ai/product-summary', async (req, res) => {
 })
 
 app.post('/api/products', requireAuth, async (req, res) => {
-  const user = req.user
-  const product = req.body || {}
+  try {
+    const user = req.user
+    const body = req.body || {}
 
-  const created = await query(
-    `INSERT INTO products (created_by_email, payload_json)
-     VALUES (?, ?)`,
-    [user.email || '', JSON.stringify(product)]
-  )
+    const barcode = normBarcode(body.barcode)
+    if (!barcode) return res.status(400).json({ error: 'Missing barcode' })
 
-  res.json({ ok: true, createdBy: user.email, insertId: created?.insertId || null })
+    const name = String(body.name || 'Onbekend').trim() || 'Onbekend'
+    const ingredientsText = String(body.ingredients_text ?? 'Onbekend').trim() || 'Onbekend'
+    const allergenKeys = uniq(toAllergenKeys(body.allergenKeys))
+
+    const conn = await db.getConnection()
+    try {
+      await conn.beginTransaction()
+
+      const [existing] = await conn.execute(
+        `SELECT id FROM products WHERE barcode = ? LIMIT 1`,
+        [barcode]
+      )
+
+      let productId = existing?.[0]?.id
+
+      if (!productId) {
+        const [ins] = await conn.execute(
+          `INSERT INTO products (barcode, name, ingredients_text, created_by_email)
+           VALUES (?, ?, ?, ?)`,
+          [barcode, name, ingredientsText, user?.email || '']
+        )
+        productId = ins.insertId
+      } else {
+        await conn.execute(
+          `UPDATE products
+           SET name = ?, ingredients_text = ?
+           WHERE id = ?`,
+          [name, ingredientsText, productId]
+        )
+        await conn.execute(`DELETE FROM product_allergens WHERE product_id = ?`, [productId])
+      }
+
+      if (allergenKeys.length) {
+        const placeholders = allergenKeys.map(() => '?').join(',')
+        const [aRows] = await conn.execute(
+          `SELECT id, allergen_key FROM allergens WHERE allergen_key IN (${placeholders})`,
+          allergenKeys
+        )
+
+        const keyToId = new Map(aRows.map(r => [r.allergen_key, r.id]))
+        const pairs = allergenKeys
+          .map(k => keyToId.get(k))
+          .filter(Boolean)
+          .map(allergenId => [productId, allergenId])
+
+        if (pairs.length) {
+          const valuesSql = pairs.map(() => '(?, ?)').join(',')
+          const flat = pairs.flat()
+          await conn.execute(
+            `INSERT IGNORE INTO product_allergens (product_id, allergen_id)
+             VALUES ${valuesSql}`,
+            flat
+          )
+        }
+      }
+
+      await conn.commit()
+
+      res.json({
+        ok: true,
+        barcode,
+        id: productId
+      })
+    } catch (e) {
+      await conn.rollback()
+      res.status(500).json({ error: 'DB error' })
+    } finally {
+      conn.release()
+    }
+  } catch {
+    res.status(500).json({ error: 'Server error' })
+  }
 })
+
+
+app.get('/api/products/:barcode', async (req, res) => {
+  try {
+    const barcode = normBarcode(req.params.barcode)
+    if (!barcode) return res.status(400).json({ error: 'Missing barcode' })
+
+    const rows = await query(
+      `SELECT id, barcode, name, ingredients_text, created_at, updated_at
+       FROM products
+       WHERE barcode = ?
+       LIMIT 1`,
+      [barcode]
+    )
+
+    const p = rows[0]
+    if (!p) return res.status(404).json({ error: 'Not found' })
+
+    const allergenRows = await query(
+      `SELECT a.allergen_key AS key, a.allergen_name AS name
+       FROM product_allergens pa
+       JOIN allergens a ON a.id = pa.allergen_id
+       WHERE pa.product_id = ?
+       ORDER BY a.allergen_name`,
+      [p.id]
+    )
+
+    res.json({
+      product: {
+        id: p.id,
+        barcode: p.barcode,
+        name: p.name,
+        ingredients_text: p.ingredients_text,
+        allergens: allergenRows
+      }
+    })
+  } catch {
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
 
 const port = Number(process.env.PORT || 8787)
 app.listen(port, () => {

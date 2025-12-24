@@ -35,6 +35,128 @@
     </div>
   </div>
 
+  <div v-if="isCreateProductOpen" class="fixed inset-0 z-[9999]">
+  <button
+    type="button"
+    class="absolute inset-0 bg-black/70"
+    @click="closeCreateProductModal()"
+  ></button>
+
+  <div class="relative flex min-h-full items-end justify-center p-4 sm:items-center">
+    <div
+      class="pointer-events-auto w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-4 shadow-xl"
+      @click.stop
+    >
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div class="text-base font-semibold text-slate-100">Product opslaan</div>
+          <div class="mt-1 text-sm leading-relaxed text-slate-300">
+            Voeg naam, ingrediënten en allergenen toe voor deze barcode.
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="rounded-lg border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-300 hover:bg-slate-950"
+          @click="closeCreateProductModal()"
+        >
+          Sluiten
+        </button>
+      </div>
+
+      <div class="mt-4 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+        <div class="flex items-center justify-between gap-3">
+          <div class="text-xs text-slate-400">Barcode</div>
+          <span class="text-xs text-slate-200 break-all">{{ createBarcode }}</span>
+        </div>
+      </div>
+
+      <div class="mt-4 space-y-3">
+        <div>
+          <label class="block text-xs text-slate-400">Naam</label>
+          <input
+            v-model="createName"
+            type="text"
+            class="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-200 outline-none focus:border-slate-600"
+            placeholder="Onbekend"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-400">Ingrediënten</label>
+          <textarea
+            v-model="createIngredients"
+            rows="4"
+            class="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-200 outline-none focus:border-slate-600"
+            placeholder="Onbekend"
+          ></textarea>
+        </div>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2 text-xs text-slate-300">
+              <font-awesome-icon icon="shield-heart" class="text-slate-300" />
+              Allergenen
+            </div>
+            <span class="text-[11px] text-slate-500">Selecteer alles wat van toepassing is</span>
+          </div>
+
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            <button
+              v-for="a in ALLERGEN_OPTIONS"
+              :key="a.key"
+              type="button"
+              class="inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs"
+              :class="createAllergenKeys.includes(a.key)
+                ? 'border-emerald-900/60 bg-emerald-950/30 text-emerald-200'
+                : 'border-slate-800 bg-slate-950/30 text-slate-200 hover:bg-slate-950/50'"
+              @click="toggleCreateAllergen(a.key)"
+            >
+              <font-awesome-icon :icon="createAllergenKeys.includes(a.key) ? 'circle-check' : 'circle' " />
+              {{ a.label }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="saveError" class="rounded-lg border border-rose-900/50 bg-rose-950/20 p-3 text-xs text-rose-200 break-words">
+          {{ saveError }}
+        </div>
+
+        <div v-if="saveOk" class="rounded-lg border border-emerald-900/50 bg-emerald-950/20 p-3 text-xs text-emerald-200 break-words">
+          Opgeslagen
+        </div>
+
+        <div class="mt-2 flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-sm text-slate-200 hover:bg-slate-950/60 sm:w-auto"
+            :disabled="saving || !authUser"
+            @click="saveCreateProduct()"
+          >
+            <font-awesome-icon icon="floppy-disk" class="text-slate-300" />
+            Opslaan
+          </button>
+
+          <button
+            type="button"
+            class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-sm text-slate-200 hover:bg-slate-950/60 sm:w-auto"
+            :disabled="saving"
+            @click="closeCreateProductModal()"
+          >
+            <font-awesome-icon icon="xmark" class="text-slate-300" />
+            Annuleren
+          </button>
+        </div>
+
+        <div class="text-xs text-slate-500 leading-relaxed">
+          Tip: als je niks invult blijft het “Onbekend”.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
   <div v-if="isLoginModalOpen" class="fixed inset-0 z-[9999]">
   <button
     type="button"
@@ -295,6 +417,35 @@
           </div>
 
           <div v-else-if="product" class="space-y-3">
+
+            <div v-if="authUser" class="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2 text-xs text-slate-300">
+                  <font-awesome-icon icon="plus" class="text-slate-300" />
+                  Product toevoegen aan database
+                </div>
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-3 py-2 text-xs text-slate-200 hover:bg-slate-950/60"
+                  @click="openCreateProductModal()"
+                >
+                  <font-awesome-icon icon="pen-to-square" class="text-slate-300" />
+                  Bewerken / Opslaan
+                </button>
+              </div>
+
+              <div class="mt-2 text-xs text-slate-500 leading-relaxed">
+                Dit overschrijft of vult data aan voor deze barcode.
+              </div>
+            </div>
+
+            <div v-else class="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+              <div class="flex items-center gap-2 text-xs text-slate-300">
+                <font-awesome-icon icon="lock" class="text-slate-300" />
+                Log in om producten toe te voegen.
+              </div>
+            </div>
+
             <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
               <div class="text-xs text-slate-300">Product</div>
               <h2 class="mt-1 break-words text-base font-semibold leading-snug text-slate-100">
@@ -511,6 +662,74 @@ import { useBarcodeScanner } from '@/composables/useBarcodeScanner'
 import { useProductLookup } from '@/composables/useProductLookup'
 import { useProductAi } from '@/composables/useProductAi'
 import { useAuth } from '@/composables/useAuth'
+
+const {
+  loading,
+  saving,
+  product,
+  error,
+  dataSource,
+  statusText,
+  detailResult,
+  allergenResults,
+  fetchProductMulti,
+  saveProductToDb,
+  saveError,
+  saveOk
+} = useProductLookup()
+
+const isCreateProductOpen = ref(false)
+const createBarcode = ref('')
+const createName = ref('')
+const createIngredients = ref('')
+const createAllergenKeys = ref([])
+
+function openCreateProductModal() {
+  if (!lastBarcode.value) return
+  isCreateProductOpen.value = true
+  createBarcode.value = String(lastBarcode.value || '').trim()
+
+  const p = product.value || {}
+  createName.value = String(p.product_name || 'Onbekend').trim() || 'Onbekend'
+  createIngredients.value = String(p.ingredients_text || 'Onbekend').trim() || 'Onbekend'
+
+  const fromDb = Array.isArray(p?._dbAllergens) ? p._dbAllergens.map(x => x.key) : []
+  if (fromDb.length) {
+    createAllergenKeys.value = fromDb
+  } else {
+    const pre = Array.isArray(allergenResults.value)
+      ? allergenResults.value.filter(r => r.level === 'unsafe' || r.level === 'caution').map(r => r.key)
+      : []
+    createAllergenKeys.value = [...new Set(pre)]
+  }
+}
+
+function closeCreateProductModal() {
+  isCreateProductOpen.value = false
+}
+
+function toggleCreateAllergen(key) {
+  const k = String(key || '').trim()
+  if (!k) return
+  const idx = createAllergenKeys.value.indexOf(k)
+  if (idx >= 0) createAllergenKeys.value.splice(idx, 1)
+  else createAllergenKeys.value.push(k)
+}
+
+async function saveCreateProduct() {
+  if (!authUser.value) return
+  const payload = {
+    barcode: createBarcode.value,
+    name: createName.value,
+    ingredients_text: createIngredients.value,
+    allergenKeys: createAllergenKeys.value
+  }
+  const out = await saveProductToDb(payload)
+  if (out) {
+    await fetchProductMulti(createBarcode.value)
+  }
+}
+
 
 onMounted(async () => {
   const url = new URL(window.location.href)
@@ -751,7 +970,6 @@ function trackBarcodeDetected(code) {
 }
 
 const { aiLoading, aiError, aiText, generateAiSummary, clearAi } = useProductAi()
-const { loading, product, error, dataSource, statusText, detailResult, allergenResults, fetchProductMulti, clearResult } = useProductLookup()
 
 const primaryResult = computed(() => {
   const list = Array.isArray(allergenResults?.value) ? allergenResults.value : []
